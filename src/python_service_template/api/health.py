@@ -65,7 +65,7 @@ class DetailedHealthResponse(BaseModel):
         )
 
 
-router = APIRouter(tags=["system"])
+router = APIRouter(prefix="/health", tags=["system"])
 
 
 @router.get("/")

@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# ------------------------------------------------------------
+# ENUM: Mức độ logging
+# ------------------------------------------------------------
 class LoggingLevel(str, enum.Enum):
     DEBUG = "DEBUG"
     INFO = "INFO"
@@ -18,25 +21,32 @@ class LoggingLevel(str, enum.Enum):
     CRITICAL = "CRITICAL"
 
 
+# ------------------------------------------------------------
+# LoggingConfig có default hợp lệ
+# ------------------------------------------------------------
 class LoggingConfig(BaseModel):
-    level: LoggingLevel = Field(description="Logging level for the application")
-    format: t.Literal["JSON", "PLAIN"] = Field(
-        description="Logging output format - JSON for structured logs or PLAIN for console"
-    )
+    level: LoggingLevel = Field(default=LoggingLevel.INFO, description="Logging level")
+    format: t.Literal["JSON", "PLAIN"] = Field(default="PLAIN", description="Logging format")
 
 
+# ------------------------------------------------------------
+# Coffee API config (đặt URL giả để không lỗi)
+# ------------------------------------------------------------
 class CoffeeApi(BaseModel):
-    host: str = Field(description="Coffee API host URL")
+    host: str = Field(default="https://dummyjson.com", description="Coffee API host URL")
 
 
+# ------------------------------------------------------------
+# App Settings - đã thêm default cho tất cả field quan trọng
+# ------------------------------------------------------------
 class Settings(BaseSettings):
-    host: str = Field(description="Host address to bind the server to")
-    port: int = Field(description="Port number to run the server on")
+    host: str = Field(default="0.0.0.0", description="Host address to bind the server to")
+    port: int = Field(default=5000, description="Port number to run the server on")
     workers: int = Field(default=1, description="Number of worker processes")
-    logging: LoggingConfig = Field(description="Logging configuration settings")
-    coffee_api: CoffeeApi = Field(description="Coffee API configuration")
-    app_version: str = Field(default="0.1.0", description="Application version", min_length=1)
-    git_commit_sha: str = Field(default="sha", description="Git commit SHA", min_length=1)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig, description="Logging configuration settings")
+    coffee_api: CoffeeApi = Field(default_factory=CoffeeApi, description="Coffee API configuration")
+    app_version: str = Field(default="dev", description="Application version", min_length=1)
+    git_commit_sha: str = Field(default="local", description="Git commit SHA", min_length=1)
 
     model_config = SettingsConfigDict(
         env_file=(".env.default", ".env"),
@@ -46,6 +56,9 @@ class Settings(BaseSettings):
     )
 
 
+# ------------------------------------------------------------
+# Structlog helpers
+# ------------------------------------------------------------
 def add_correlation_id(_, __, event_dict):
     cid = correlation_id.get()
     if cid:
@@ -85,13 +98,7 @@ def configure_structlog(app_version: str, git_commit: str, config: LoggingConfig
         cache_logger_on_first_use=True,
     )
 
-    # Configure stdlib logging to use structlog's ProcessorFormatter
-    timestamper = structlog.processors.TimeStamper(fmt="iso")
-    pre_chain = [
-        structlog.stdlib.add_log_level,
-        timestamper,
-    ]
-
+    # Cấu hình logging chuẩn cho Python stdlib
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stderr,
@@ -105,7 +112,6 @@ def configure_structlog(app_version: str, git_commit: str, config: LoggingConfig
             if config.format == "JSON"
             else structlog.dev.ConsoleRenderer(event_key="message"),
         ],
-        foreign_pre_chain=pre_chain,  # type: ignore[arg-type]
     )
 
     handler = logging.StreamHandler()
@@ -117,15 +123,7 @@ def configure_structlog(app_version: str, git_commit: str, config: LoggingConfig
 
 
 def create_std_logging_config(app_version: str, git_commit: str, config: LoggingConfig) -> dict[str, t.Any]:
-    """Logging configuration for uvicorn using standard logging module.
-
-    The main goal is to render the logs the same way as structlog does.
-
-    See:
-        https://www.structlog.org/en/stable/standard-library.html#rendering-using-structlog-based-formatters-within-logging
-    """
-    # For verbose loggers, use the maximum of WARNING or user's configured level
-    # This ensures they're at least WARNING but respects higher levels like ERROR
+    """Logging configuration for uvicorn using standard logging module."""
     user_level = logging._nameToLevel.get(config.level.value, logging.INFO)
     verbose_logger_level = logging.getLevelName(max(logging.WARNING, user_level))
 
@@ -171,7 +169,6 @@ def create_std_logging_config(app_version: str, git_commit: str, config: Logging
                 "level": config.level.value,
                 "propagate": False,
             },
-            # These are verbose loggers - set to minimum WARNING but respect higher user levels
             "httpx": {
                 "handlers": ["structlog"],
                 "level": verbose_logger_level,

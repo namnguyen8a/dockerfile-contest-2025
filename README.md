@@ -121,7 +121,7 @@ This structure ensures that business rules remain at the core of the project, wi
 | Run dev server      | `python src/python_service_template/app.py --reload` |
 | Run pre-commit      | `uvx pre-commit run --all-files`             |
 | Build Docker image  | `docker buildx build ...`                    |
-| Run Docker          | `docker run --env-file .env.default -e HOST=0.0.0.0 -p 3000:3000 python-service-template` |
+| Run Docker          | `docker run --env-file .env.default -e HOST=0.0.0.0 -p 5000:5000 python-service-template` |
 
 ---
 
@@ -131,20 +131,16 @@ This project includes first-class Docker support for local and production use.
 
 **Build the image:**
 ```sh
-docker buildx build \
-   --build-arg GIT_COMMIT_SHA=$(git rev-parse --short HEAD) \
-   --build-arg APP_VERSION=0.1.0 \
-   --tag python-service-template \
-   .
+docker buildx build .
 ```
 
 **Run the container:**
 ```sh
-docker run --env-file .env.default -e HOST=0.0.0.0 -p 3000:3000 python-service-template
+docker run -dp 5000:5000 python-service-template
 ```
 
 - The container uses environment variables from `.env.default` (or your own `.env`).
-- The default entrypoint runs the FastAPI app on port 3000.
+- The default entrypoint runs the FastAPI app on port 5000.
 - Multi-stage build optimizes the final image size.
 - For local development, you can mount your code as a volume and override the command if needed.
 
@@ -159,7 +155,7 @@ All configuration is managed via environment variables. See `.env.default` for a
 | Variable            | Description                        | Default         |
 |---------------------|------------------------------------|-----------------|
 | `HOST`              | Host to bind                       | `127.0.0.1`     |
-| `PORT`              | Port to bind                       | `3000`          |
+| `PORT`              | Port to bind                       | `5000`          |
 | `WORKERS`           | Number of worker processes         | `1`             |
 | `LOGGING__LEVEL`    | Logging level (`DEBUG`, `INFO`, etc.) | `INFO`       |
 | `LOGGING__FORMAT`   | Logging format (`PLAIN` or `JSON`) | `PLAIN`         |
@@ -171,9 +167,9 @@ All configuration is managed via environment variables. See `.env.default` for a
 
 ## API Documentation
 
-- **Swagger UI:** [http://localhost:3000/docs](http://localhost:3000/docs)
-- **OpenAPI schema:** [http://localhost:3000/openapi.json](http://localhost:3000/openapi.json)
-- **Prometheus metrics:** [http://localhost:3000/metrics](http://localhost:3000/metrics)
+- **Swagger UI:** [http://localhost:5000/docs](http://localhost:5000/docs)
+- **OpenAPI schema:** [http://localhost:5000/openapi.json](http://localhost:5000/openapi.json)
+- **Prometheus metrics:** [http://localhost:5000/metrics](http://localhost:5000/metrics)
 
 ### Health Check Endpoints
 
@@ -182,7 +178,7 @@ A lightweight endpoint that provides basic service status.
 
 **Example Request:**
 ```bash
-curl "http://localhost:3000/"
+curl "http://localhost:5000/"
 ```
 
 **Example Response:**
@@ -199,7 +195,7 @@ A comprehensive endpoint that includes health status of all integrated services.
 
 **Example Request:**
 ```bash
-curl "http://localhost:3000/health"
+curl "http://localhost:5000/health"
 ```
 
 **Example Response:**
@@ -265,7 +261,7 @@ python src/python_service_template/app.py --reload
 
 ## Troubleshooting
 
-- If you encounter port conflicts, ensure no other process is using the configured port (default: 3000).
+- If you encounter port conflicts, ensure no other process is using the configured port (default: 5000).
 - For Docker issues, rebuild the image after dependency or config changes.
 
 ---
